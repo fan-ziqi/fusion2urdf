@@ -39,27 +39,27 @@ class Link:
         self.repo = repo
         self.mass = mass
         self.inertia_tensor = inertia_tensor
-        
+
     def make_link_xml(self):
         """
         Generate the link_xml and hold it by self.link_xml
         """
-        
+
         link = Element('link')
         link.attrib = {'name':self.name}
-        
+
         #inertial
         inertial = SubElement(link, 'inertial')
         origin_i = SubElement(inertial, 'origin')
-        origin_i.attrib = {'xyz':' '.join([str(_) for _ in self.center_of_mass]), 'rpy':'0 0 0'}       
+        origin_i.attrib = {'xyz':' '.join([str(_) for _ in self.center_of_mass]), 'rpy':'0 0 0'}
         mass = SubElement(inertial, 'mass')
         mass.attrib = {'value':str(self.mass)}
         inertia = SubElement(inertial, 'inertia')
         inertia.attrib = \
             {'ixx':str(self.inertia_tensor[0]), 'iyy':str(self.inertia_tensor[1]),\
             'izz':str(self.inertia_tensor[2]), 'ixy':str(self.inertia_tensor[3]),\
-            'iyz':str(self.inertia_tensor[4]), 'ixz':str(self.inertia_tensor[5])}        
-        
+            'iyz':str(self.inertia_tensor[4]), 'ixz':str(self.inertia_tensor[5])}
+
         # visual
         visual = SubElement(link, 'visual')
         origin_v = SubElement(visual, 'origin')
@@ -69,7 +69,7 @@ class Link:
         mesh_v.attrib = {'filename':'package://' + self.repo + self.name + '.stl','scale':'0.001 0.001 0.001'}
         material = SubElement(visual, 'material')
         material.attrib = {'name':'silver'}
-        
+
         # collision
         collision = SubElement(link, 'collision')
         origin_c = SubElement(collision, 'origin')
@@ -83,31 +83,32 @@ class Link:
 
 
 def make_inertial_dict(root, msg):
-    """      
+    """
     Parameters
     ----------
     root: adsk.fusion.Design.cast(product)
         Root component
     msg: str
         Tell the status
-        
+
     Returns
     ----------
     inertial_dict: {name:{mass, inertia, center_of_mass}}
-    
+
     msg: str
         Tell the status
     """
-    # Get component properties.      
+    # Get component properties.
     allOccs = root.occurrences
     inertial_dict = {}
-    
+
     for occs in allOccs:
         # Skip the root component.
         occs_dict = {}
         prop = occs.getPhysicalProperties(adsk.fusion.CalculationAccuracy.VeryHighCalculationAccuracy)
-        
-        occs_dict['name'] = re.sub('[ :()]', '_', occs.name)
+
+        # occs_dict['name'] = re.sub('[ :()]', '_', occs.name)
+        occs_dict['name'] = re.sub(r'\s*\(\d+\)|:\d+$', '', occs.name)
 
         mass = prop.mass  # kg
         occs_dict['mass'] = mass
@@ -118,10 +119,11 @@ def make_inertial_dict(root, msg):
         (_, xx, yy, zz, xy, yz, xz) = prop.getXYZMomentsOfInertia()
         moment_inertia_world = [_ / 10000.0 for _ in [xx, yy, zz, xy, yz, xz] ] ## kg / cm^2 -> kg/m^2
         occs_dict['inertia'] = utils.origin2center_of_mass(moment_inertia_world, center_of_mass, mass)
-        
+
         if occs.component.name == 'base_link':
             inertial_dict['base_link'] = occs_dict
         else:
-            inertial_dict[re.sub('[ :()]', '_', occs.name)] = occs_dict
+            # inertial_dict[re.sub('[ :()]', '_', occs.name)] = occs_dict
+            inertial_dict[re.sub(r'\s*\(\d+\)|:\d+$', '', occs.name)] = occs_dict
 
     return inertial_dict, msg
